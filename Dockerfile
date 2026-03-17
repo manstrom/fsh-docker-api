@@ -1,15 +1,24 @@
-FROM node:20-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
+# Kopiera package filer
 COPY package*.json ./
-RUN npm install
 
-COPY tsconfig.json ./
-COPY src ./src
+# Installera beroenden
+RUN npm ci
 
+# Kopiera resten av koden
+COPY . .
+
+# Bygg TypeScript
 RUN npm run build
 
+# Skapa en volume för SQLite databasen
+VOLUME [ "/app/data" ]
+
+# Exponera porten
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+# Starta appen
+CMD ["npm", "start"]

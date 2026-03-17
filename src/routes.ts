@@ -1,26 +1,30 @@
 import { Router, Request, Response } from "express";
-import { pool } from "./db/database";
+import { getDb } from "./db/database";
 import { CreateCarBody, UpdateCarBody } from "./types";
 
 export const carsRouter = Router();
 
+// GET /api/cars
 carsRouter.get("/", async (req: Request, res: Response) => {
+  const db = await getDb();
   const { brand } = req.query;
 
-  let result;
+  let cars;
   if (brand && typeof brand === "string") {
-    result = await pool.query(
-      "SELECT * FROM cars WHERE brand ILIKE $1 ORDER BY id",
+    cars = await db.all(
+      "SELECT * FROM cars WHERE brand LIKE ? ORDER BY id",
       [`%${brand}%`]
     );
   } else {
-    result = await pool.query("SELECT * FROM cars ORDER BY id");
+    cars = await db.all("SELECT * FROM cars ORDER BY id");
   }
 
-  res.json({ data: result.rows, count: result.rowCount });
+  res.json({ data: cars, count: cars.length });
 });
 
+// GET /api/cars/:id
 carsRouter.get("/:id", async (req: Request, res: Response) => {
+  const db = await getDb();
   const id = parseInt(req.params.id, 10);
 
   if (isNaN(id)) {
@@ -28,19 +32,22 @@ carsRouter.get("/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await pool.query("SELECT * FROM cars WHERE id = $1", [id]);
+  const car = await db.get("SELECT * FROM cars WHERE id = ?", [id]);
 
-  if (result.rowCount === 0) {
+  if (!car) {
     res.status(404).json({ error: `Car with id ${id} not found` });
     return;
   }
 
-  res.json(result.rows[0]);
+  res.json(car);
 });
 
+// POST /api/cars
 carsRouter.post("/", async (req: Request, res: Response) => {
+  const db = await getDb();
   const { brand, model, year, color, horsepower, for_sale = false }: CreateCarBody = req.body;
 
+  // Validering
   if (!brand || typeof brand !== "string" || brand.trim() === "") {
     res.status(400).json({ error: "Field 'brand' is required" });
     return;
@@ -62,24 +69,30 @@ carsRouter.post("/", async (req: Request, res: Response) => {
     return;
   }
 
-  const existing = await pool.query(
-    "SELECT id FROM cars WHERE brand = $1 AND model = $2 AND year = $3 AND color = $4",
+  // Kolla om bilen redan finns
+  const existing = await db.get(
+    "SELECT id FROM cars WHERE brand = ? AND model = ? AND year = ? AND color = ?",
     [brand.trim(), model.trim(), year, color.trim()]
   );
-  if (existing.rowCount && existing.rowCount > 0) {
+  
+  if (existing) {
     res.status(409).json({ error: "A car with the same brand, model, year and color already exists" });
     return;
   }
 
-  const result = await pool.query(
-    "INSERT INTO cars (brand, model, year, color, horsepower, for_sale) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+  // Skapa ny bil
+  const result = await db.run(
+    "INSERT INTO cars (brand, model, year, color, horsepower, for_sale) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
     [brand.trim(), model.trim(), year, color.trim(), horsepower, for_sale]
   );
 
-  res.status(201).json(result.rows[0]);
+  const newCar = await db.get("SELECT * FROM cars WHERE id = ?", [result.lastID]);
+  res.status(201).json(newCar);
 });
 
+// PATCH /api/cars/:id
 carsRouter.patch("/:id", async (req: Request, res: Response) => {
+  const db = await getDb();
   const id = parseInt(req.params.id, 10);
 
   if (isNaN(id)) {
@@ -87,8 +100,8 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  const check = await pool.query("SELECT id FROM cars WHERE id = $1", [id]);
-  if (check.rowCount === 0) {
+  const car = await db.get("SELECT * FROM cars WHERE id = ?", [id]);
+  if (!car) {
     res.status(404).json({ error: `Car with id ${id} not found` });
     return;
   }
@@ -96,14 +109,13 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
   const body: UpdateCarBody = req.body;
   const updates: string[] = [];
   const values: any[] = [];
-  let paramCount = 1;
 
   if (body.brand !== undefined) {
     if (typeof body.brand !== "string" || body.brand.trim() === "") {
       res.status(400).json({ error: "Field 'brand' must be a non-empty string" });
       return;
     }
-    updates.push(`brand = $${paramCount++}`);
+    updates.push("brand = ?");
     values.push(body.brand.trim());
   }
   if (body.model !== undefined) {
@@ -111,7 +123,7 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Field 'model' must be a non-empty string" });
       return;
     }
-    updates.push(`model = $${paramCount++}`);
+    updates.push("model = ?");
     values.push(body.model.trim());
   }
   if (body.year !== undefined) {
@@ -119,7 +131,7 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Field 'year' must be a number >= 1886" });
       return;
     }
-    updates.push(`year = $${paramCount++}`);
+    updates.push("year = ?");
     values.push(body.year);
   }
   if (body.color !== undefined) {
@@ -127,7 +139,7 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Field 'color' must be a non-empty string" });
       return;
     }
-    updates.push(`color = $${paramCount++}`);
+    updates.push("color = ?");
     values.push(body.color.trim());
   }
   if (body.horsepower !== undefined) {
@@ -135,12 +147,12 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Field 'horsepower' must be a positive number" });
       return;
     }
-    updates.push(`horsepower = $${paramCount++}`);
+    updates.push("horsepower = ?");
     values.push(body.horsepower);
   }
   if (body.for_sale !== undefined) {
-    updates.push(`for_sale = $${paramCount++}`);
-    values.push(body.for_sale);
+    updates.push("for_sale = ?");
+    values.push(body.for_sale ? 1 : 0);
   }
 
   if (updates.length === 0) {
@@ -149,15 +161,18 @@ carsRouter.patch("/:id", async (req: Request, res: Response) => {
   }
 
   values.push(id);
-  const result = await pool.query(
-    `UPDATE cars SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`,
+  await db.run(
+    `UPDATE cars SET ${updates.join(", ")} WHERE id = ?`,
     values
   );
 
-  res.json(result.rows[0]);
+  const updatedCar = await db.get("SELECT * FROM cars WHERE id = ?", [id]);
+  res.json(updatedCar);
 });
 
+// DELETE /api/cars/:id
 carsRouter.delete("/:id", async (req: Request, res: Response) => {
+  const db = await getDb();
   const id = parseInt(req.params.id, 10);
 
   if (isNaN(id)) {
@@ -165,16 +180,16 @@ carsRouter.delete("/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  const existing = await pool.query("SELECT * FROM cars WHERE id = $1", [id]);
-  if (existing.rowCount === 0) {
+  const car = await db.get("SELECT * FROM cars WHERE id = ?", [id]);
+  if (!car) {
     res.status(404).json({ error: `Car with id ${id} not found` });
     return;
   }
 
-  await pool.query("DELETE FROM cars WHERE id = $1", [id]);
+  await db.run("DELETE FROM cars WHERE id = ?", [id]);
 
   res.json({
-    message: `Car '${existing.rows[0].brand} ${existing.rows[0].model}' was deleted`,
-    deleted: existing.rows[0],
+    message: `Car '${car.brand} ${car.model}' was deleted`,
+    deleted: car,
   });
 });

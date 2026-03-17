@@ -1,32 +1,13 @@
-services:
-  db:
-    image: postgres:16-alpine
-    container_name: cars_db
-    environment:
-      POSTGRES_USER: cars
-      POSTGRES_PASSWORD: cars123
-      POSTGRES_DB: carsdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cars -d carsdb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+version: '3.8'
 
+services:
   api:
     build: .
-    container_name: cars_api
+    container_name: fsh-cars-api
     ports:
       - "3000:3000"
+    volumes:
+      - ./data:/app/data
     environment:
-      DATABASE_URL: postgres://cars:cars123@db:5432/carsdb
-      PORT: 3000
-    depends_on:
-      db:
-        condition: service_healthy
-
-volumes:
-  postgres_data:
+      - PORT=3000
+      - DATABASE_PATH=/app/data/cars.db
