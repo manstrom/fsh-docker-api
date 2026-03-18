@@ -21,37 +21,37 @@ const swaggerOptions = {
         Car: {
           type: "object",
           properties: {
-            id:         { type: "integer", example: 1 },
-            brand:      { type: "string",  example: "Volvo" },
-            model:      { type: "string",  example: "XC90" },
-            year:       { type: "integer", example: 2022 },
-            color:      { type: "string",  example: "Silver" },
+            id: { type: "integer", example: 1 },
+            brand: { type: "string", example: "Volvo" },
+            model: { type: "string", example: "XC90" },
+            year: { type: "integer", example: 2022 },
+            color: { type: "string", example: "Silver" },
             horsepower: { type: "integer", example: 249 },
-            for_sale:   { type: "boolean", example: true },
-            created_at: { type: "string",  example: "2024-01-15T12:00:00Z" },
+            for_sale: { type: "boolean", example: true },
+            created_at: { type: "string", example: "2024-01-15T12:00:00Z" },
           },
         },
         CreateCar: {
           type: "object",
           required: ["brand", "model", "year", "color", "horsepower"],
           properties: {
-            brand:      { type: "string",  example: "Ferrari" },
-            model:      { type: "string",  example: "Roma" },
-            year:       { type: "integer", example: 2023 },
-            color:      { type: "string",  example: "Red" },
+            brand: { type: "string", example: "Ferrari" },
+            model: { type: "string", example: "Roma" },
+            year: { type: "integer", example: 2023 },
+            color: { type: "string", example: "Red" },
             horsepower: { type: "integer", example: 612 },
-            for_sale:   { type: "boolean", example: true },
+            for_sale: { type: "boolean", example: true },
           },
         },
         UpdateCar: {
           type: "object",
           properties: {
-            brand:      { type: "string",  example: "Ferrari" },
-            model:      { type: "string",  example: "Roma" },
-            year:       { type: "integer", example: 2023 },
-            color:      { type: "string",  example: "Blue" },
+            brand: { type: "string", example: "Ferrari" },
+            model: { type: "string", example: "Roma" },
+            year: { type: "integer", example: 2023 },
+            color: { type: "string", example: "Blue" },
             horsepower: { type: "integer", example: 612 },
-            for_sale:   { type: "boolean", example: false },
+            for_sale: { type: "boolean", example: false },
           },
         },
         Error: {
@@ -74,13 +74,13 @@ const swaggerOptions = {
         get: {
           summary: "Get all cars",
           tags: ["Cars"],
-          parameters: [
-            {
-              name: "brand", in: "query", required: false,
-              schema: { type: "string" },
-              description: "Filter by brand, e.g. Volvo",
-            },
-          ],
+          parameters: [{
+            name: "brand",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Filter by brand, e.g. Volvo",
+          }],
           responses: {
             "200": {
               description: "List of cars",
@@ -89,7 +89,7 @@ const swaggerOptions = {
                   schema: {
                     type: "object",
                     properties: {
-                      data:  { type: "array", items: { $ref: "#/components/schemas/Car" } },
+                      data: { type: "array", items: { $ref: "#/components/schemas/Car" } },
                       count: { type: "integer" },
                     },
                   },
@@ -153,12 +153,12 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.get("/health", (_req: express.Request, res: express.Response) => {
+app.get("/health", (_req, res) => {
   res.json({ status: "ok", message: "Cars API is running" });
 });
 
 app.use("/api/cars", carsRouter);
 
-app.use((_req: express.Request, res: express.Response) => {
+app.use((_req, res) => {
   res.status(404).json({ error: "Route not found" });
 });

@@ -12,7 +12,6 @@ export async function getDb() {
       driver: sqlite3.Database
     });
 
-    // Skapa tabell om den inte finns
     await db.exec(`
       CREATE TABLE IF NOT EXISTS cars (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,12 +30,9 @@ export async function getDb() {
 
 export async function seedDb() {
   const db = await getDb();
-  
-  // Kolla om tabellen är tom
   const count = await db.get('SELECT COUNT(*) as count FROM cars');
   
   if (count.count === 0) {
-    // Lägg in 8 bilar
     await db.exec(`
       INSERT INTO cars (brand, model, year, color, horsepower, for_sale) VALUES 
       ('Volvo', 'XC90', 2022, 'Silver', 249, true),
@@ -48,8 +44,6 @@ export async function seedDb() {
       ('Ford', 'Mustang', 2023, 'Yellow', 450, true),
       ('Tesla', 'Model 3', 2023, 'White', 283, true)
     `);
-    
-    console.log('Database seeded with 8 cars');
   }
   
   return db;
